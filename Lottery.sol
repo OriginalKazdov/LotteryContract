@@ -1,9 +1,9 @@
 //SPDX-License-Identifier: MIT
-pragma solidity ^0.8.0;
+pragma solidity ^0.8.18;
 
 contract Lottery{
   address public owner;
-  address[] public players;
+  address payable[] public players;
   uint256 amount = 0.1 ether;
 
   modifier OnlyOwner(){
@@ -15,14 +15,24 @@ contract Lottery{
     owner = msg.sender;
   }
 
-  function enter() external payable{
-    require(msg.value == amount, "Can't exceed 0.1 ETH");
-    players.push(msg.sender);
+  function getBalance() public OnlyOwner view returns(uint){
+    return address(this).balance;
   }
 
-  function pickWinner() external view OnlyOwner(){
-    require(players.length >= 3, "3 or more players needed");
+  function enter() external payable{
+    require(msg.value == amount, "Must send exactly 0.1 ETH");
+    players.push(payable(msg.sender));
+  }
 
+  function pickWinner() public OnlyOwner{
+    require(players.length >= 3, "3 or more players needed");
+      // This is not secure but for the love of knowledge I'll do it anyway.
+    uint256 random = uint256(keccak256(abi.encodePacked(block.timestamp, block.prevrandao, players.length)));
+    uint256 winnerIndex = random % players.length;
+    address payable winner = players[winnerIndex];
+    (bool ok, ) = winner.call{value: getBalance()}("");
+    require(ok, "Transfer failed");
+    players = new address payable[](0);
   }
 
 }
